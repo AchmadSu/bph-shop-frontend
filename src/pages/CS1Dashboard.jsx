@@ -3,9 +3,12 @@ import { Container, Spinner, Card, Modal, Form } from "react-bootstrap";
 import { Table, Button, Icon, Label, Image } from "semantic-ui-react";
 import api from "../api/axios";
 import { formatIDR } from "../utils/formatter";
+import { toast } from "react-toastify";
+import LoadMoreButton from "../components/LoadMoreButton";
 
 export default function CS1Payments() {
   const [payments, setPayments] = useState([]);
+  const [nextPageUrl, setNextPageUrl] = useState(null);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedPayment, setSelectedPayment] = useState(null);
@@ -18,12 +21,22 @@ export default function CS1Payments() {
       .then(res => {
         if (res.data.success) setPayments(res.data.data || []);
         else setPayments([]);
+        setNextPageUrl(res.data.next_page_url ?? null)
+        toast.success(res.data.message ?? "Fetch payment successfully")
       })
-      .catch(err => console.error(err))
+      .catch((err) => {
+        console.log(err)
+        const message = err.response?.data.message;
+        toast.error(message ?? `Failed to fetch payment`);
+      })
       .finally(() => setLoading(false));
   };
 
   useEffect(() => { fetchPayments(); }, []);
+
+  const appendPayments = (newItems) => {
+    setPayments(prev => [...prev, ...newItems]);
+  };
 
   const openModal = (payment) => {
     setSelectedPayment(payment);
@@ -42,15 +55,43 @@ export default function CS1Payments() {
 
     setSubmitting(true);
     try {
-      await api.put(`/payments/${selectedPayment.payment.id}/verify`, { approved, notes });
+      const res = await api.put(`/payments/${selectedPayment.payment.id}/verify`, { approved, notes });
       setModalOpen(false);
+      toast.success(res.data.message ?? "Verify payment successfully");
       fetchPayments();
     } catch (err) {
       console.error(err);
+      const message = err.response?.data.message;
+      toast.error(message ?? "Failed to verify payment")
     } finally {
       setSubmitting(false);
     }
   };
+
+  const handleDownloadProof = async () => {
+    try {
+      const fileUrl = selectedPayment.payment.proof_path;
+      const response = await fetch(fileUrl);
+
+      if (!response.ok) throw new Error("File not found");
+
+      const blob = await response.blob();
+      const fileExtension = fileUrl.split(".").pop();
+      
+      const customName = `payment-proof-${selectedPayment.order_number}.${fileExtension}`;
+
+      const downloadLink = document.createElement("a");
+      downloadLink.href = URL.createObjectURL(blob);
+      downloadLink.download = customName;
+      downloadLink.click();
+
+      URL.revokeObjectURL(downloadLink.href);
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to download file")
+    }
+  };
+
 
   if (loading) return <div className="text-center mt-5"><Spinner animation="border" /></div>;
 
@@ -107,7 +148,14 @@ export default function CS1Payments() {
         ))
       )}
 
-      {/* Modal for verification */}
+      <LoadMoreButton
+        endpoint={nextPageUrl}
+        onLoad={({ items, nextPage }) => {
+          appendPayments(items);
+          setNextPageUrl(nextPage);
+        }}
+      />
+
       <Modal show={modalOpen} onHide={() => setModalOpen(false)}>
         <Modal.Header closeButton>
           <Modal.Title>Verify Payment</Modal.Title>
@@ -121,10 +169,15 @@ export default function CS1Payments() {
               <div className="mb-3">
                 <strong>Total Amount:</strong> {formatIDR(Number(selectedPayment.total_amount))}
               </div>
-              {selectedPayment.payment.proof_path && (
+              {selectedPayment?.payment.proof_path && (
                 <div className="mb-3">
                   <strong>Payment Proof:</strong><br/>
-                  <Image src={selectedPayment.payment.proof_path} style={{ maxWidth: "100%", maxHeight: 300 }} />
+                  <Image src={selectedPayment?.payment.proof_path} style={{ maxWidth: "100%", maxHeight: 300 }} />
+                  <div className="mt-3 d-flex justify-content-start">
+                    <Button color="blue" onClick={handleDownloadProof}>
+                      <i className="bi bi-download" /> Download Proof
+                    </Button>
+                  </div>
                 </div>
               )}
               <Form.Group className="mb-3">
@@ -143,13 +196,15 @@ export default function CS1Payments() {
           <Button color="grey" onClick={() => setModalOpen(false)} disabled={submitting}>
             Cancel
           </Button>
-          <Button
-            color="green"
-            loading={submitting}
-            onClick={() => handleVerify(true)}
-          >
-            Approve
-          </Button>
+          {selectedPayment?.payment.proof_path && (
+            <Button
+              color="green"
+              loading={submitting}
+              onClick={() => handleVerify(true)}
+            >
+              Approve
+            </Button>
+          )}
           <Button
             color="red"
             loading={submitting}

@@ -1,19 +1,29 @@
 import React, { useEffect, useState } from "react";
 import { Container, Spinner, Card, Row, Col, Collapse, Badge, Modal as RBModal, Form as RBForm } from "react-bootstrap";
-import { Table, Label, Icon, Image, Button } from "semantic-ui-react";
+import { Table, Label, Icon, Button } from "semantic-ui-react";
 import api from "../api/axios";
-import { formatIDR } from "../utils/formatter";
+import { formatIDR, formatDate } from "../utils/formatter";
+import "react-step-progress-bar/styles.css";
+import { toast } from "react-toastify";
+import LoadMoreButton from "../components/LoadMoreButton";
 
 export default function MyOrders() {
   const [orders, setOrders] = useState([]);
+  const [nextPageUrlOrders, setNextPageUrlOrders] = useState(null);
+  const [shipments, setShipments] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadingShipment, setLoadingShipment] = useState(false);
   const [openOrderId, setOpenOrderId] = useState(null);
-
-  // Modal Upload Payment
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
+  const [shipmentModalOpen, setShipmentModalOpen] = useState(false);
   const [selectedOrderId, setSelectedOrderId] = useState(null);
   const [file, setFile] = useState(null);
   const [loadingUpload, setLoadingUpload] = useState(false);
+  const statusStyle = {
+    packing: { color: "warning", icon: "📦", label: "Packing" },
+    shipped: { color: "primary", icon: "🚚", label: "Shipped" },
+    delivered: { color: "success", icon: "✔️", label: "Delivered" },
+  };
 
   const fetchOrders = () => {
     setLoading(true);
@@ -21,12 +31,22 @@ export default function MyOrders() {
       .then(res => {
         if (res.data.success) setOrders(res.data.data || []);
         else setOrders([]);
+        setNextPageUrlOrders(res.data.next_page_url ?? null);
+        toast.success(res.data.message ?? "Fetch orders successful")
       })
-      .catch(err => console.error(err))
+      .catch((err) => {
+        console.error(err)
+        const message = err.response?.data.message;
+        toast.error(message ?? "Failed to fetch orders data");
+      })
       .finally(() => setLoading(false));
   };
 
   useEffect(() => { fetchOrders(); }, []);
+
+  const appendOrders = (newItems) => {
+    setOrders(prev => [...prev, ...newItems]);
+  };
 
   const toggleOrder = (id) => {
     setOpenOrderId(openOrderId === id ? null : id);
@@ -35,6 +55,27 @@ export default function MyOrders() {
   const openPaymentModal = (orderId) => {
     setSelectedOrderId(orderId);
     setPaymentModalOpen(true);
+  };
+  
+  const toggleShipment = (orderId) => {
+    fetchShipments(orderId);
+    setShipmentModalOpen(true);
+  };
+
+  const fetchShipments = (orderId) => {
+    setLoadingShipment(true);
+    api.get(`/shipment/${orderId}/logs`)
+      .then(res => {
+        console.log(res.data.data)
+        if (res.data.success) setShipments(res.data.data || []);
+        else setShipments([]);
+      })
+      .catch(err => {
+        console.error(err)
+        const message = err.response?.data.message;
+        toast.error(message ?? "Failed to fetch shipment data");
+      })
+      .finally(() => setLoadingShipment(false));
   };
 
   const handleUpload = async () => {
@@ -45,15 +86,16 @@ export default function MyOrders() {
     formData.append("proof", file);
 
     try {
-      await api.post(`/orders/${selectedOrderId}/payments`, formData, {
+      const res = await api.post(`/orders/${selectedOrderId}/payments`, formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
       setPaymentModalOpen(false);
       setFile(null);
+      toast.success(res.data.message ?? "Upload proof data success")
       fetchOrders();
     } catch (err) {
       console.error(err);
-      alert(err.response?.data?.message || "Upload failed");
+      toast.error(err.response?.data?.message || "Upload failed");
     } finally {
       setLoadingUpload(false);
     }
@@ -73,6 +115,8 @@ export default function MyOrders() {
             const statusColor =
               order.status === "completed" ? "success" :
               order.status === "pending_payment" ? "warning" :
+              order.status === "shipping" ? "info" :
+              order.status === "verified" ? "primary" :
               order.status === "cancelled" ? "danger" : "secondary";
 
             const isExpired = new Date(order.expired_at) < new Date() && order.status === "pending_payment";
@@ -84,7 +128,7 @@ export default function MyOrders() {
                     <div className="d-flex justify-content-between align-items-start mb-2">
                       <div>
                         <h6 className="fw-bold">{order.order_number}</h6>
-                        <small className="text-muted">{new Date(order.created_at).toLocaleString()}</small>
+                        <small className="text-muted">{formatDate(order.created_at)}</small>
                       </div>
                       <Badge bg={statusColor} pill className="py-2 px-3">
                         {order.status.replace("_", " ")}
@@ -104,6 +148,17 @@ export default function MyOrders() {
                       >
                         {openOrderId === order.id ? <Icon name="angle down" /> : <Icon name="angle right" />} View Details
                       </Button>
+
+                      {order.status === "packing" || order.status === "shipping" || order.status === "completed" && (
+                        <Button
+                          size="small"
+                          color="orange"
+                          onClick={() => toggleShipment(order.id)}
+                        >
+
+                          <Icon name="truck" /> Tracking Shipment
+                        </Button>
+                      )}
 
                       {order.status === "pending_payment" && !isExpired && (
                         <Button
@@ -172,7 +227,14 @@ export default function MyOrders() {
         </Row>
       )}
 
-      {/* Bootstrap Modal for Upload Payment */}
+      <LoadMoreButton
+        endpoint={nextPageUrlOrders}
+        onLoad={({ items, nextPage }) => {
+          appendOrders(items);
+          setNextPageUrlOrders(nextPage);
+        }}
+      />
+
       <RBModal show={paymentModalOpen} onHide={() => setPaymentModalOpen(false)} centered>
         <RBModal.Header closeButton>
           <RBModal.Title>Upload Payment Proof</RBModal.Title>
@@ -190,6 +252,46 @@ export default function MyOrders() {
           <Button color="green" onClick={handleUpload} loading={loadingUpload} disabled={!file || loadingUpload}>
             Upload
           </Button>
+        </RBModal.Footer>
+      </RBModal>
+
+      <RBModal show={shipmentModalOpen} onHide={() => setShipmentModalOpen(false)} centered size="lg">
+        <RBModal.Header closeButton>
+          <RBModal.Title>📦 Shipment Progress</RBModal.Title>
+        </RBModal.Header>
+
+        <RBModal.Body>
+          {loadingShipment ? <div className="text-center"><Spinner animation="border" /></div> : (
+            <>
+              <h5 className="fw-bold mb-3">Shipment Progress</h5>
+
+              <div className="shipment-progress-container">
+                <div className="progress-line"></div>
+
+                <div className="steps-wrapper">
+                  {shipments.map((step, index) => {
+                    const style = statusStyle[step.status] || {};
+                    const isCompleted = index <= shipments.length - 1;
+
+                    return (
+                      <div key={step.id} className="step-item">
+                        <div className={`step-icon ${isCompleted ? "active" : ""}`} style={{ backgroundColor: style.color }}>
+                          {style.icon}
+                        </div>
+                        <div className="step-label">{style.label || step.status}</div>
+                        <div className="step-date">{formatDate(step.created_at)}</div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </>
+          )}
+        </RBModal.Body>
+
+
+        <RBModal.Footer>
+          <Button color="grey" onClick={() => setShipmentModalOpen(false)}>Close</Button>
         </RBModal.Footer>
       </RBModal>
     </Container>

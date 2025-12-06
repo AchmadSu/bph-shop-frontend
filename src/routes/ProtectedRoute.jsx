@@ -8,7 +8,7 @@ export default function ProtectedRoute({ children, allowedRoles }) {
 
    if (loading) return null;
 
-  if (!user) return <Navigate to="/auth" replace />;
+  if (!user) return <Navigate to="/" replace />;
 
   const hasAccess = allowedRoles.includes(user.role);
 
