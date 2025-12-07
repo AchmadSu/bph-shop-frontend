@@ -27,6 +27,8 @@ export default function BuyerDashboard() {
   const [loadingProducts, setLoadingProducts] = useState(true);
   const [nextPageUrlProduct, setNextPageUrlProduct] = useState(null);
   const [loadingCart, setLoadingCart] = useState(true);
+  const [loadingAddCart, setLoadingAddCart] = useState(false);
+  const [idAddCart, setIdAddCart] = useState(null);
   const [loadingCheckout, setLoadingCheckout] = useState(false);
   const [cartModalOpen, setCartModalOpen] = useState(false);
   const imageUrl = "https://img.freepik.com/free-vector/colorful-new-product-composition-with-flat-design_23-2147927004.jpg?semt=ais_hybrid&w=740&q=80"
@@ -61,6 +63,8 @@ export default function BuyerDashboard() {
   useEffect(() => { fetchCart(); }, []);
 
   const addToCart = async (product) => {
+    setIdAddCart(product.id)
+    setLoadingAddCart(true)
     try {
       await api.post("/cart/add", { product_id: product.id, quantity: 1 });
       toast.success(`${product.name} added to cart!`);
@@ -68,6 +72,9 @@ export default function BuyerDashboard() {
     } catch (err) {
       const message = err.response?.data.message;
       toast.error(message ?? `Failed to add ${product.name}`);
+    } finally {
+      setIdAddCart(null)
+      setLoadingAddCart(false)
     }
   };
 
@@ -133,7 +140,7 @@ export default function BuyerDashboard() {
                 <Card.Subtitle className="mb-2 text-muted">{formatIDR(Number(product.price))}</Card.Subtitle>
                 <Card.Text>{product.description}</Card.Text>
                 {user && (
-                  <Button color="blue" onClick={() => addToCart(product)}>
+                  <Button loading={loadingAddCart && idAddCart === product.id} disabled={loadingAddCart} color="blue" onClick={() => addToCart(product)}>
                     <i class="cart arrow down icon"></i> Add to Cart
                   </Button>
                 )}
