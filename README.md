@@ -1,6 +1,6 @@
 # React + Vite Project Setup Guide
 
-Panduan ini membantu Anda menjalankan project React dengan Vite versi **7.2.6** dan Node / npm versi **10.9.0+**.
+Panduan ini membantu Anda menjalankan project BPH SHOP React dengan Vite versi **7.2.6** dan Node / npm versi **10.9.0+**.
 
 ---
 
@@ -21,8 +21,8 @@ npm -v
 ## 📥 Clone / Pull Repository
 Jika belum clone repository:
 ```bash
-git clone <repository-url>
-cd <project-folder>
+git clone https://github.com/AchmadSu/bph-shop-frontend
+cd bph-shop-frontend
 ```
 Jika sudah dan ingin update:
 ```bash
@@ -40,17 +40,6 @@ Jika ada error dependency, bisa coba:
 ```bash
 npm install --force
 ```
-
----
-
-## ⚙️ Konfigurasi Environment
-Jika project menyediakan file `.env.example`, lakukan langkah berikut:
-```bash
-cp .env.example .env
-```
-Sesuaikan konfigurasi API, Base URL, atau environment lain sesuai kebutuhan.
-
----
 
 ## 🚀 Menjalankan Development Server
 Untuk menjalankan Vite development server:
@@ -97,69 +86,15 @@ Jika ada script tambahan dalam `package.json`, jalankan dengan format:
 ```bash
 npm run <script-name>
 ```
+## Integrasi dengan Laravel API
+Jangan lupa untuk menjalankan project Laravel BPH Shop, dapat anda lihat rinciannya melalui tautan berikut:
 
----
-
-## 🔗 Integrasi API dengan Backend (Laravel, Node, dll.)
-Jika aplikasi ini menggunakan backend API (misalnya Laravel, Express, NestJS, dll.), pastikan Anda:
-
-### 1️⃣ Menentukan Base URL API
-Atur base URL di file `.env`:
-```
-VITE_API_URL=http://localhost:8000/api
-```
-*Gunakan URL deploy (misalnya VPS atau domain) saat production.*
-
----
-
-### 2️⃣ Contoh Pemanggilan API (Axios)
-Jika project ini menggunakan Axios, buat file API helper, contoh:
-```javascript
-import axios from "axios";
-
-const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL,
-  withCredentials: true // opsional untuk auth berbasis cookie
-});
-
-export default api;
-```
-
-Penggunaan:
-```javascript
-const response = await api.get("/products");
-console.log(response.data);
-```
-
----
-
-### 3️⃣ Handling Authentication
-Jika backend menggunakan JWT, Sanctum, atau token-based authentication:
-```javascript
-const login = async () => {
-  const response = await api.post("/login", {
-    email,
-    password
-  });
-
-  localStorage.setItem("token", response.data.token);
-  api.defaults.headers.Authorization = `Bearer ${response.data.token}`;
-};
-```
-
----
-
-### 4️⃣ Integrasi Secure Cookie (Jika backend pakai Sanctum / HttpOnly)
-Tambahkan konfigurasi credential:
-```javascript
-axios.defaults.withCredentials = true;
-```
-Dan pastikan backend sudah mengizinkan CORS.
-
----
+🔗 https://github.com/AchmadSu/bph-shop/blob/main/README.md
 
 ## 🎉 Selesai
 Project React + Vite berhasil dijalankan.
-Jika mengalami error atau butuh bantuan, bisa hubungi tim developer atau cek dokumentasi Vite:
-https://vite.dev
+Project BPH SHOP berhasil dijalankan. Jika terjadi error atau butuh penjelasan tambahan, silakan cek dokumentasi React Vite atau hubungi melalui: 
 
+📩 Email: ecepentis@gmail.com
+
+💬 WhatsApp: wa.me/6289658420438
