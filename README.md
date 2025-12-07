@@ -1,4 +1,4 @@
-# React + Vite Project Setup Guide
+# BPH SHOP React + Vite Project Setup Guide
 
 Panduan ini membantu Anda menjalankan project BPH SHOP React dengan Vite versi **7.2.6** dan Node / npm versi **10.9.0+**.
 
